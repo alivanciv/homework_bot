@@ -7,7 +7,8 @@ import time
 import dotenv
 import requests
 import telegram
-from exceptions import *
+from exceptions import (Api400Exception, Api401Exception, ApiStatusException,
+                        HomeworkStatusException)
 
 dotenv.load_dotenv()
 
@@ -42,7 +43,7 @@ logger.addHandler(handler)
 
 
 def check_tokens():
-    """Проверка доступности требуемых переменных окружения"""
+    """Проверка доступности требуемых переменных окружения."""
     if None in [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]:
         logger.critical(
             'Ошибка при загрузке токенов. Убедитсеь, '
@@ -55,7 +56,7 @@ def check_tokens():
 
 
 def send_message(bot, message):
-    """Отправка сообщения в Telegram"""
+    """Отправка сообщения в Telegram."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logger.debug('Сообщение в Telegram отправлено')
@@ -65,7 +66,7 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    """Отправка запроса и получение ответа от API"""
+    """Отправка запроса и получение ответа от API."""
     try:
         response = requests.get(ENDPOINT, headers=HEADERS,
                                 params={'from_date': timestamp})
@@ -141,7 +142,7 @@ def main():
         except Exception as error:
             message = f'Сбой в работе программы: {error}: {exception_count+1}'
             if exception_count == 0:
-                send_message(bot,  f'Сбой в работе программы: {error}')
+                send_message(bot, f'Сбой в работе программы: {error}')
             exception_count += 1
             logger.error(message)
         time.sleep(RETRY_PERIOD)
