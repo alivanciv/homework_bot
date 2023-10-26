@@ -1,22 +1,26 @@
 class Api400Exception(Exception):
-
-    def __str__(self):
-        return 'В запросе передано что-то неожиданное для сервиса.'
+    pass
 
 
 class Api401Exception(Exception):
-
-    def __str__(self):
-        return 'Запрос с недействительным или некорректным токеном.'
+    pass
 
 
 class ApiStatusException(Exception):
+    pass
 
-    def __str__(self):
-        return 'Запрос к API вернул статус код отлтчный от 200'
+
+class UnhandledApiException(Exception):
+    pass
 
 
 class HomeworkStatusException(Exception):
+    pass
 
-    def __str__(self):
-        return 'Получен неожиданный статус работы.'
+
+class UnhandledStatusException(Exception):
+    pass
+
+
+class SendMessageException(Exception):
+    pass

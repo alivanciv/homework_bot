@@ -8,7 +8,8 @@ import dotenv
 import requests
 import telegram
 from exceptions import (Api400Exception, Api401Exception, ApiStatusException,
-                        HomeworkStatusException)
+                        UnhandledApiException, HomeworkStatusException,
+                        UnhandledStatusException, SendMessageException)
 
 dotenv.load_dotenv()
 
@@ -16,7 +17,7 @@ PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-RETRY_PERIOD = 600
+RETRY_PERIOD = 12
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
@@ -44,7 +45,7 @@ logger.addHandler(handler)
 
 def check_tokens():
     """Проверка доступности требуемых переменных окружения."""
-    if None in [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]:
+    if not all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]):
         logger.critical(
             'Ошибка при загрузке токенов. Убедитсеь, '
             'что PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID '
@@ -60,9 +61,8 @@ def send_message(bot, message):
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logger.debug('Сообщение в Telegram отправлено')
-    except Exception as error:
+    except SendMessageException as error:
         message = f'Ошибка при отправке сообщения в Telegram: {error}'
-        logger.error(message)
 
 
 def get_api_answer(timestamp):
@@ -71,18 +71,17 @@ def get_api_answer(timestamp):
         response = requests.get(ENDPOINT, headers=HEADERS,
                                 params={'from_date': timestamp})
         if response.status_code == 400:
-            logger.error('В запросе передано что-то неожиданное для сервиса')
-            raise Api400Exception
+            message = 'В запросе передано что-то неожиданное для сервиса.'
+            raise Api400Exception(message)
         if response.status_code == 401:
-            logger.error('Запрос с недействительным или некорректным токеном')
-            raise Api401Exception
+            message = 'Запрос с недействительным или некорректным токеном.'
+            raise Api401Exception(message)
         if response.status_code != 200:
-            logger.error('Запрос к API вернул статус код отличный от 200')
-            raise ApiStatusException
-    except Exception as error:
+            message = 'Запрос к API вернул статус код отличный от 200'
+            raise ApiStatusException(message)
+    except UnhandledApiException as error:
         message = f'Ошибка при запросе к API: {error}'
-        logger.error(message)
-        raise Exception(message)
+        raise UnhandledApiException(message)
     return response.json()
 
 
@@ -95,12 +94,10 @@ def check_response(response):
                 return False
             if type(response['homeworks']) is not list:
                 message = ('Ошибка в типе ключа "homewroks" ответe от API')
-                logger.error(message)
                 raise TypeError(message)
             return True
     except KeyError as error:
         message = f'Ошибка в ключах ответа от API: {error}'
-        logger.error(message)
         raise KeyError(message)
 
 
@@ -110,20 +107,19 @@ def parse_status(homework):
         homework_name = homework['homework_name']
         status = homework['status']
         if status not in list(HOMEWORK_VERDICTS.keys()):
-            logger.error('Получен неожиданный статус работы.')
-            raise HomeworkStatusException
+            message = 'Получен неожиданный статус работы.'
+            raise HomeworkStatusException(message)
         verdict = HOMEWORK_VERDICTS[status]
-    except Exception as error:
+    except UnhandledStatusException as error:
         message = f'Ошибка при извлечении статуса работы: {error}'
-        logger.error(message)
-        raise Exception(message)
+        raise UnhandledStatusException(message)
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def main():
     """Основная логика работы бота."""
     if not check_tokens():
-        return
+        sys.exit()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
     exception_count = 0
@@ -142,7 +138,8 @@ def main():
         except Exception as error:
             message = f'Сбой в работе программы: {error}: {exception_count+1}'
             if exception_count == 0:
-                send_message(bot, f'Сбой в работе программы: {error}')
+                message = f'Сбой в работе программы: {error}'
+                send_message(bot, message)
             exception_count += 1
             logger.error(message)
         time.sleep(RETRY_PERIOD)
