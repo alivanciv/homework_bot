@@ -20,7 +20,3 @@ class HomeworkStatusException(Exception):
 
 class UnhandledStatusException(Exception):
     pass
-
-
-class SendMessageException(Exception):
-    pass

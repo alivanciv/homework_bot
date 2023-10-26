@@ -9,7 +9,7 @@ import requests
 import telegram
 from exceptions import (Api400Exception, Api401Exception, ApiStatusException,
                         UnhandledApiException, HomeworkStatusException,
-                        UnhandledStatusException, SendMessageException)
+                        UnhandledStatusException)
 
 dotenv.load_dotenv()
 
@@ -17,7 +17,7 @@ PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-RETRY_PERIOD = 12
+RETRY_PERIOD = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
@@ -61,8 +61,9 @@ def send_message(bot, message):
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logger.debug('Сообщение в Telegram отправлено')
-    except SendMessageException as error:
+    except Exception as error:
         message = f'Ошибка при отправке сообщения в Telegram: {error}'
+        logger.error(message)
 
 
 def get_api_answer(timestamp):
@@ -79,7 +80,7 @@ def get_api_answer(timestamp):
         if response.status_code != 200:
             message = 'Запрос к API вернул статус код отличный от 200'
             raise ApiStatusException(message)
-    except UnhandledApiException as error:
+    except Exception as error:
         message = f'Ошибка при запросе к API: {error}'
         raise UnhandledApiException(message)
     return response.json()
@@ -110,7 +111,7 @@ def parse_status(homework):
             message = 'Получен неожиданный статус работы.'
             raise HomeworkStatusException(message)
         verdict = HOMEWORK_VERDICTS[status]
-    except UnhandledStatusException as error:
+    except Exception as error:
         message = f'Ошибка при извлечении статуса работы: {error}'
         raise UnhandledStatusException(message)
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
